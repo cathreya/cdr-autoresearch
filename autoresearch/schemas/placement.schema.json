@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "placement.schema.json",
+  "title": "Placement",
+  "description": "A balanced storage placement: which nodes store each file segment. Invariants beyond shape (replication == r, equal per-node load) are enforced by validatePlacement in verifier.mjs.",
+  "type": "object",
+  "required": ["kind", "nodes", "r", "unit", "segments"],
+  "additionalProperties": false,
+  "properties": {
+    "kind": { "const": "placement" },
+    "nodes": { "type": "integer", "minimum": 1, "description": "Number of nodes; ids are 1..nodes." },
+    "r": { "type": "integer", "minimum": 1, "description": "Replication factor: |S_i| for every segment." },
+    "unit": { "type": "integer", "minimum": 1, "description": "Size unit denominator. unit=14 means sizes are counted in T/14." },
+    "segments": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "size", "storage"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "integer", "description": "Segment label (arbitrary, 1-based by convention)." },
+          "size": { "type": "integer", "minimum": 1, "description": "Segment size in `unit`s." },
+          "storage": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 1 },
+            "description": "S_i: the exactly-r node ids storing this segment."
+          }
+        }
+      }
+    }
+  }
+}

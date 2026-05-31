@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "split_merge_plan.schema.json",
+  "title": "SplitMergePlan",
+  "description": "How source segments are split into destination-tagged subsegments and merged into the post-removal target segments. Invariants (size conservation, target balance, and the destination rule B = S~_j \\ S_i) are enforced by verifyPlan in verifier.mjs against the initial and target placements.",
+  "type": "object",
+  "required": ["kind", "removed", "pieces", "merges"],
+  "additionalProperties": false,
+  "properties": {
+    "kind": { "const": "plan" },
+    "removed": { "type": "integer", "minimum": 1, "description": "The removed node id." },
+    "pieces": {
+      "type": "array",
+      "description": "Subsegments. A piece is a part of source segment `source`, of `size` units, that must be delivered to the nodes in `dest`. A whole passthrough segment is a single piece (its dest may be empty if it need not move).",
+      "items": {
+        "type": "object",
+        "required": ["id", "source", "dest", "size"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "description": "Unique piece label, e.g. 'W8_6' for W_8^{6}." },
+          "source": { "type": "integer", "description": "Source segment id this piece is carved from." },
+          "dest": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 1 },
+            "description": "B: target-storage nodes that must receive this piece. Empty means no movement. Must equal S~_j \\ S_source for the target j it merges into."
+          },
+          "size": { "type": "integer", "minimum": 1, "description": "Piece size in `unit`s." }
+        }
+      }
+    },
+    "merges": {
+      "type": "array",
+      "description": "Each target segment is the concatenation of its parts.",
+      "items": {
+        "type": "object",
+        "required": ["target", "parts"],
+        "additionalProperties": false,
+        "properties": {
+          "target": { "type": "integer", "description": "Target segment id in the target placement." },
+          "parts": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Piece ids composing this target segment. Each piece must be consumed by exactly one merge."
+          }
+        }
+      }
+    }
+  }
+}

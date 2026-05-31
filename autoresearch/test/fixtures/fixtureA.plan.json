@@ -1,0 +1,165 @@
+{
+  "kind": "plan",
+  "removed": 8,
+  "pieces": [
+    {
+      "id": "W1",
+      "source": 1,
+      "dest": [],
+      "size": 14
+    },
+    {
+      "id": "W2",
+      "source": 2,
+      "dest": [],
+      "size": 14
+    },
+    {
+      "id": "W3_1",
+      "source": 3,
+      "dest": [
+        1
+      ],
+      "size": 12
+    },
+    {
+      "id": "W3_2",
+      "source": 3,
+      "dest": [
+        2
+      ],
+      "size": 2
+    },
+    {
+      "id": "W4_2",
+      "source": 4,
+      "dest": [
+        2
+      ],
+      "size": 10
+    },
+    {
+      "id": "W4_3",
+      "source": 4,
+      "dest": [
+        3
+      ],
+      "size": 4
+    },
+    {
+      "id": "W5_3",
+      "source": 5,
+      "dest": [
+        3
+      ],
+      "size": 8
+    },
+    {
+      "id": "W5_4",
+      "source": 5,
+      "dest": [
+        4
+      ],
+      "size": 6
+    },
+    {
+      "id": "W6_4",
+      "source": 6,
+      "dest": [
+        4
+      ],
+      "size": 6
+    },
+    {
+      "id": "W6_5",
+      "source": 6,
+      "dest": [
+        5
+      ],
+      "size": 8
+    },
+    {
+      "id": "W7_5",
+      "source": 7,
+      "dest": [
+        5
+      ],
+      "size": 4
+    },
+    {
+      "id": "W7_6",
+      "source": 7,
+      "dest": [
+        6
+      ],
+      "size": 10
+    },
+    {
+      "id": "W8_6",
+      "source": 8,
+      "dest": [
+        6
+      ],
+      "size": 2
+    },
+    {
+      "id": "W8_7",
+      "source": 8,
+      "dest": [
+        7
+      ],
+      "size": 12
+    }
+  ],
+  "merges": [
+    {
+      "target": 1,
+      "parts": [
+        "W1",
+        "W8_6"
+      ]
+    },
+    {
+      "target": 2,
+      "parts": [
+        "W2",
+        "W3_2"
+      ]
+    },
+    {
+      "target": 3,
+      "parts": [
+        "W3_1",
+        "W4_3"
+      ]
+    },
+    {
+      "target": 4,
+      "parts": [
+        "W4_2",
+        "W5_4"
+      ]
+    },
+    {
+      "target": 5,
+      "parts": [
+        "W5_3",
+        "W6_5"
+      ]
+    },
+    {
+      "target": 6,
+      "parts": [
+        "W6_4",
+        "W7_6"
+      ]
+    },
+    {
+      "target": 7,
+      "parts": [
+        "W7_5",
+        "W8_7"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "repair_scheme.schema.json",
+  "title": "RepairScheme",
+  "description": "An executable sequence of coded broadcasts that delivers every moving piece in a SplitMergePlan. Decodability (transmitter stores all terms; every receiver holds all other terms as side information) and delivery coverage are enforced by verifyRepair in verifier.mjs.",
+  "type": "object",
+  "required": ["kind", "broadcasts"],
+  "additionalProperties": false,
+  "properties": {
+    "kind": { "const": "repair" },
+    "broadcasts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["by", "terms"],
+        "additionalProperties": false,
+        "properties": {
+          "by": { "type": "integer", "minimum": 1, "description": "Transmitting node. Must store every term it XORs and must not be the removed node." },
+          "terms": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" },
+            "description": "Piece ids XOR-combined into this one transmission. A single-term broadcast is an uncoded send."
+          },
+          "size": { "type": "integer", "minimum": 1, "description": "Optional. Transmission size = max term size (zero-padded XOR). If given, it is checked against the computed value." }
+        }
+      }
+    }
+  }
+}

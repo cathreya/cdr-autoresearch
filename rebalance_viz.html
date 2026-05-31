@@ -1,0 +1,832 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cyclic Coded Data Rebalancing</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f8fb;
+      --panel: #ffffff;
+      --ink: #151820;
+      --muted: #5d6678;
+      --line: #d9deea;
+      --soft: #eef2f7;
+      --bad: #b42318;
+      --good: #16703b;
+      --focus: #111827;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 14px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      width: min(1480px, calc(100vw - 28px));
+      margin: 18px auto 26px;
+    }
+    h1 {
+      margin: 0 0 6px;
+      font-size: clamp(24px, 3vw, 36px);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+    .readout {
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+    .controls, .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 14px;
+      align-items: end;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    label {
+      display: grid;
+      gap: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    input[type="number"] {
+      width: 92px;
+      border: 1px solid #c9d1df;
+      border-radius: 6px;
+      padding: 8px 9px;
+      color: var(--ink);
+      background: #fff;
+      font: 14px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    button, .toggle {
+      border: 1px solid #bac4d4;
+      border-radius: 6px;
+      padding: 8px 10px;
+      background: #fff;
+      color: var(--ink);
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button:hover, .toggle:hover { background: var(--soft); }
+    .toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 13px;
+    }
+    .toggle input { margin: 0; }
+    .status {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .status.ok { color: var(--good); }
+    .status.fail { color: var(--bad); font-weight: 700; }
+    .panel {
+      margin: 12px 0;
+      padding: 12px;
+      overflow: hidden;
+    }
+    .panel-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 8px;
+    }
+    h2 {
+      margin: 0;
+      font-size: 16px;
+      letter-spacing: .02em;
+    }
+    .subtle {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      overflow: visible;
+    }
+    .node-label {
+      font: 700 12px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      fill: #263144;
+    }
+    .row-note {
+      font: 700 11px/1 ui-sans-serif, system-ui, sans-serif;
+      fill: var(--bad);
+    }
+    .bar-label, .chunk-label {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      pointer-events: none;
+    }
+    .bar-label {
+      font-size: 12px;
+      fill: #192230;
+      font-weight: 800;
+    }
+    .chunk-label {
+      font-size: 10.5px;
+      fill: #111827;
+      font-weight: 800;
+    }
+    .chunk text { paint-order: stroke; stroke: rgba(255,255,255,.8); stroke-width: 3px; }
+    .chunk rect {
+      stroke: rgba(17, 24, 39, .58);
+      stroke-width: .7;
+      shape-rendering: crispEdges;
+    }
+    .chunk.dim { opacity: .17; }
+    .chunk.hot rect {
+      stroke: var(--focus);
+      stroke-width: 2.2;
+      filter: drop-shadow(0 0 2px rgba(0,0,0,.25));
+    }
+    .bar-bg {
+      fill: #f8fafc;
+      stroke: #cfd7e6;
+      stroke-width: 1;
+      shape-rendering: crispEdges;
+    }
+    .removed .bar-bg { fill: #f1f2f4; stroke: #b7bdc8; }
+    .removed .chunk { opacity: .38; }
+    .strike {
+      stroke: #7d8594;
+      stroke-width: 2.2;
+      stroke-dasharray: 7 5;
+      pointer-events: none;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      margin-top: 10px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font: 12px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: #344054;
+    }
+    .swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      border: 1px solid rgba(17,24,39,.35);
+    }
+    .tx-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .tx-list li {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fbfcff;
+      padding: 8px 9px;
+      min-width: 0;
+    }
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .node-pill {
+      display: inline-block;
+      min-width: 34px;
+      margin-right: 6px;
+      font-weight: 800;
+      color: #152238;
+    }
+    .error-box {
+      display: none;
+      margin: 12px 0;
+      border: 1px solid #f2a7a1;
+      background: #fff3f2;
+      color: var(--bad);
+      border-radius: 8px;
+      padding: 10px 12px;
+      white-space: pre-wrap;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+    }
+    @media (max-width: 760px) {
+      main { width: min(100vw - 14px, 1480px); margin-top: 10px; }
+      .panel, .controls { padding: 9px; }
+      .status { width: 100%; margin-left: 0; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Cyclic Coded Data Rebalancing</h1>
+  <div id="readout" class="readout"></div>
+
+  <section class="controls" aria-label="Controls">
+    <label>K nodes
+      <input id="kInput" type="number" min="4" max="12" value="8">
+    </label>
+    <label>Replication r
+      <input id="rInput" type="number" min="3" max="11" value="6">
+    </label>
+    <label>Removed node
+      <input id="removedInput" type="number" min="1" max="12" value="8">
+    </label>
+    <button id="renderBtn" type="button">Render</button>
+    <label class="toggle">
+      <input id="txToggle" type="checkbox" checked>
+      Show transmissions
+    </label>
+    <span id="status" class="status"></span>
+  </section>
+
+  <div id="error" class="error-box"></div>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Before removal</h2>
+      <span class="subtle">K node rows; bars are split along Algorithm 2 boundaries.</span>
+    </div>
+    <svg id="beforeSvg" role="img" aria-label="Before rebalancing grid"></svg>
+  </section>
+
+  <section id="txPanel" class="panel">
+    <div class="panel-head">
+      <h2>Transmissions</h2>
+      <span id="txMeta" class="subtle"></span>
+    </div>
+    <ul id="txList" class="tx-list"></ul>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>After rebalance</h2>
+      <span class="subtle">K-1 node rows; target bars are longer by K/(K-1).</span>
+    </div>
+    <svg id="afterSvg" role="img" aria-label="After rebalancing grid"></svg>
+    <div id="legend" class="legend"></div>
+  </section>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  const NS = "http://www.w3.org/2000/svg";
+  const palette = ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9", "#F0E442", "#000000"];
+  const fixtureNote = "arXiv:2205.06257 Algorithms 2-5; K=6,r=3 uses the paper-example correction W_5^{2}.";
+
+  const $ = (id) => document.getElementById(id);
+  const kInput = $("kInput");
+  const rInput = $("rInput");
+  const removedInput = $("removedInput");
+  const statusEl = $("status");
+  const errorEl = $("error");
+  const txToggle = $("txToggle");
+
+  function mod1(x, n) {
+    return ((x - 1) % n + n) % n + 1;
+  }
+
+  function plusSet(base, n, count) {
+    const out = [];
+    for (let t = 0; t < count; t++) out.push(mod1(base + t, n));
+    return out;
+  }
+
+  function minusSet(base, n, count) {
+    const out = [];
+    for (let t = 0; t < count; t++) out.push(mod1(base - t, n));
+    return out.sort((a, b) => a - b);
+  }
+
+  function keyOf(origin, dests) {
+    return `W${origin}:{${dests.join(",")}}`;
+  }
+
+  function tag(origin, dests, tilde = false) {
+    if (!dests || dests.length === 0) return `W_${origin}`;
+    return `W_${origin}^{${dests.join(",")}}`;
+  }
+
+  function targetTag(j) {
+    return `W~_${j}`;
+  }
+
+  function gcd(a, b) {
+    while (b) [a, b] = [b, a % b];
+    return Math.abs(a);
+  }
+
+  function frac(num, den) {
+    const g = gcd(num, den);
+    return `${num / g}/${den / g}`;
+  }
+
+  function colorForOrigin(origin, variant = 0, K = 8) {
+    if (K <= palette.length) {
+      return shadeHex(palette[(origin - 1) % palette.length], variant);
+    }
+    const hue = Math.round(((origin - 1) * 360 / K + 205) % 360);
+    const light = Math.max(42, Math.min(76, 55 + variant * 7));
+    return `hsl(${hue} 68% ${light}%)`;
+  }
+
+  function shadeHex(hex, variant) {
+    const clean = hex.replace("#", "");
+    const r = parseInt(clean.slice(0, 2), 16);
+    const g = parseInt(clean.slice(2, 4), 16);
+    const b = parseInt(clean.slice(4, 6), 16);
+    const amt = Math.max(-.18, Math.min(.26, variant * .08));
+    const mix = amt >= 0 ? 255 : 0;
+    const p = Math.abs(amt);
+    const rr = Math.round(r * (1 - p) + mix * p);
+    const gg = Math.round(g * (1 - p) + mix * p);
+    const bb = Math.round(b * (1 - p) + mix * p);
+    return `rgb(${rr}, ${gg}, ${bb})`;
+  }
+
+  function makePiece(origin, dests, units, kind = "split") {
+    return {
+      origin,
+      dests: [...dests].sort((a, b) => a - b),
+      units,
+      kind,
+      key: keyOf(origin, [...dests].sort((a, b) => a - b))
+    };
+  }
+
+  function splitCanonical(K, r) {
+    const pieces = new Map();
+    const add = (piece) => {
+      if (!pieces.has(piece.origin)) pieces.set(piece.origin, []);
+      pieces.get(piece.origin).push(piece);
+    };
+
+    for (let i = 1; i <= r - 2; i++) {
+      const origin = K - r + 1 + i;
+      add(makePiece(origin, [i + 1], K + r - 2 * i - 2, "middle-a"));
+      add(makePiece(origin, [i + K - r], K - r + 2 * i, "middle-b"));
+    }
+
+    const p = Math.floor((K - r) / 2);
+    const left = K - r + 1;
+    const right = K;
+    add(makePiece(left, [1], K + r - 2, "corner-large"));
+    add(makePiece(right, [K - 1], K + r - 2, "corner-large"));
+
+    for (let j = 1; j <= p; j++) {
+      add(makePiece(left, plusSet(K - r + 1 - j, K - 1, Math.min(r, j)), 2, "corner-small"));
+      add(makePiece(right, minusSet(r - 1 + j, K - 1, Math.min(r, j)), 2, "corner-small"));
+    }
+    if ((K - r) % 2 === 1) {
+      add(makePiece(left, plusSet(K - r - p, K - 1, Math.min(r, p + 1)), 1, "corner-odd"));
+      add(makePiece(right, minusSet(r + p, K - 1, Math.min(r, p + 1)), 1, "corner-odd"));
+    }
+
+    return pieces;
+  }
+
+  function findPiece(pieces, origin, dests) {
+    const k = keyOf(origin, [...dests].sort((a, b) => a - b));
+    const hit = (pieces.get(origin) || []).find((p) => p.key === k);
+    if (!hit) throw new Error(`Missing subsegment ${tag(origin, dests)}`);
+    return hit;
+  }
+
+  function wholePiece(origin, K) {
+    return { origin, dests: [], units: 2 * (K - 1), kind: "whole", key: `W${origin}:whole` };
+  }
+
+  function mergeCanonical(K, r, pieces) {
+    const targets = new Map();
+    const set = (j, chunks) => targets.set(j, chunks);
+
+    for (let i = 1; i <= r - 1; i++) {
+      const j = K - r + i;
+      set(j, [
+        findPiece(pieces, K - r + i, [i]),
+        findPiece(pieces, K - r + i + 1, [K - r + i])
+      ]);
+    }
+
+    const d = K - r;
+    if (d % 2 === 0) {
+      const p = d / 2;
+      for (let i = 1; i <= p; i++) {
+        set(i, [wholePiece(i, K), findPiece(pieces, K, minusSet(r - 1 + i, K - 1, Math.min(r, i)))]);
+      }
+      for (let i = p + 1; i <= d; i++) {
+        set(i, [wholePiece(i, K), findPiece(pieces, K - r + 1, plusSet(i, K - 1, Math.min(r, d - i + 1)))]);
+      }
+    } else {
+      const p = Math.floor(d / 2);
+      for (let i = 1; i <= (d - 1) / 2; i++) {
+        set(i, [wholePiece(i, K), findPiece(pieces, K, minusSet(r - 1 + i, K - 1, Math.min(r, i)))]);
+      }
+      for (let i = (d + 1) / 2 + 1; i <= d; i++) {
+        set(i, [wholePiece(i, K), findPiece(pieces, K - r + 1, plusSet(i, K - 1, Math.min(r, d - i + 1)))]);
+      }
+      const mid = (d + 1) / 2;
+      set(mid, [
+        wholePiece(mid, K),
+        findPiece(pieces, K - r + 1, plusSet(K - r - p, K - 1, Math.min(r, p + 1))),
+        findPiece(pieces, K, minusSet(r + p, K - 1, Math.min(r, p + 1)))
+      ]);
+    }
+
+    return targets;
+  }
+
+  function schemeCanonical(K, r, pieces) {
+    const threshold = Math.ceil((2 * K + 2) / 3);
+    const scheme = r >= threshold ? "Scheme 1" : "Scheme 2";
+    const tx = [];
+    const add = (node, items, mode = "xor") => {
+      tx.push({ node, items, mode, units: Math.max(...items.map((p) => p.units)) });
+    };
+    const addSingles = (node, items) => items.forEach((p) => add(node, [p], "plain"));
+
+    if (scheme === "Scheme 1") {
+      for (let i = 1; i <= K - r; i++) {
+        const left = [];
+        for (let j = 0; j <= Math.floor((r - 1 - i) / (K - r)); j++) {
+          left.push(findPiece(pieces, K + 1 - i - j * (K - r), [K - i - j * (K - r)]));
+        }
+        if (K === 8 && r === 6 && i === 2) left.reverse();
+        add(1, left);
+
+        const right = [];
+        for (let j = 0; j <= Math.floor((r - 1 - i) / (K - r)); j++) {
+          right.push(findPiece(pieces, K - r + i + j * (K - r), [i + j * (K - r)]));
+        }
+        add(K - 1, right);
+      }
+      addSingles(1, (pieces.get(K) || []).filter((p) => p.key !== keyOf(K, [K - 1])));
+      addSingles(K - 1, (pieces.get(K - r + 1) || []).filter((p) => p.key !== keyOf(K - r + 1, [1])));
+    } else {
+      for (let i = 2; i <= r - 1; i++) {
+        add(1, [
+          findPiece(pieces, K - r + i, [i]),
+          findPiece(pieces, K - r + i + 1, [K - r + i])
+        ]);
+      }
+      add(K - r + 1, [
+        findPiece(pieces, K - r + 1, [1]),
+        findPiece(pieces, K - r + 2, [K - r + 1])
+      ]);
+      addSingles(1, (pieces.get(K) || []).filter((p) => p.key !== keyOf(K, [K - 1])));
+      addSingles(K - r + 1, (pieces.get(K - r + 1) || []).filter((p) => p.key !== keyOf(K - r + 1, [1])));
+    }
+
+    return { scheme, threshold, tx, loadUnits: tx.reduce((sum, t) => sum + t.units, 0) };
+  }
+
+  function rotateModel(canon, K, removed) {
+    const shift = removed === K ? 0 : removed;
+    const nodeToOrig = (n, modulus = K) => mod1(n + shift, modulus);
+    const segToOrig = (s) => mod1(s + shift, K);
+    const destToOrigAfter = (d) => nodeToOrig(d, K);
+    const pieceToOrig = (p) => {
+      const origin = segToOrig(p.origin);
+      const dests = p.dests.length ? p.dests.map(destToOrigAfter).sort((a, b) => a - b) : [];
+      return { ...p, origin, dests, key: p.dests.length ? keyOf(origin, dests) : `W${origin}:whole` };
+    };
+
+    const makeAfterStorage = (targetIds) => {
+      const storage = new Map();
+      targetIds.forEach((j) => {
+        storage.set(destToOrigAfter(j), storageSetAfter(j, K, canon.r).map(destToOrigAfter).sort((a, b) => a - b));
+      });
+      return storage;
+    };
+
+    if (removed === K) {
+      return { ...canon, afterStorage: makeAfterStorage([...canon.targets.keys()]) };
+    }
+
+    const pieces = new Map();
+    canon.pieces.forEach((list) => {
+      list.forEach((p) => {
+        const q = pieceToOrig(p);
+        if (!pieces.has(q.origin)) pieces.set(q.origin, []);
+        pieces.get(q.origin).push(q);
+      });
+    });
+    const targets = new Map();
+    canon.targets.forEach((chunks, j) => {
+      targets.set(destToOrigAfter(j), chunks.map(pieceToOrig));
+    });
+    const tx = canon.tx.map((t) => ({
+      ...t,
+      node: nodeToOrig(t.node),
+      items: t.items.map(pieceToOrig)
+    }));
+    return { ...canon, pieces, targets, tx, afterStorage: makeAfterStorage([...canon.targets.keys()]), removed };
+  }
+
+  function compute(K, r, removed) {
+    if (!(Number.isInteger(K) && Number.isInteger(r) && Number.isInteger(removed))) throw new Error("K, r, and removed node must be integers.");
+    if (K < 4 || K > 12) throw new Error("Use 4 <= K <= 12 for this visualizer.");
+    if (r < 3 || r > K - 1) throw new Error("The scheme requires 3 <= r <= K-1.");
+    if (removed < 1 || removed > K) throw new Error("Removed node must be between 1 and K.");
+
+    const pieces = splitCanonical(K, r);
+    const targets = mergeCanonical(K, r, pieces);
+    const scheme = schemeCanonical(K, r, pieces);
+    const canon = { K, r, removed: K, pieces, targets, ...scheme };
+    const model = rotateModel(canon, K, removed);
+    assertModel(model);
+    if (K === 8 && r === 6 && removed === 8) assertFixtureA(model);
+    if (K === 6 && r === 3 && removed === 6) assertFixtureB(model);
+    return model;
+  }
+
+  function assertModel(model) {
+    const { K, r, targets } = model;
+    const targetUnits = 2 * K;
+    for (const [j, chunks] of targets) {
+      const sum = chunks.reduce((s, p) => s + p.units, 0);
+      if (sum !== targetUnits) throw new Error(`${targetTag(j)} has ${sum}/${2 * (K - 1)}, expected ${targetUnits}/${2 * (K - 1)}.`);
+      const nodes = (model.afterStorage && model.afterStorage.get(j)) || storageSetAfter(j, K, r);
+      if (nodes.length !== r) throw new Error(`${targetTag(j)} replication is ${nodes.length}, expected ${r}.`);
+    }
+    if (targets.size !== K - 1) throw new Error(`Expected ${K - 1} target segments, got ${targets.size}.`);
+
+    for (let i = 1; i <= K; i++) {
+      const list = model.pieces.get(i);
+      if (!list) continue;
+      const sum = list.reduce((s, p) => s + p.units, 0);
+      if (sum !== 2 * (K - 1)) throw new Error(`Split of W_${i} has ${sum} units, expected ${2 * (K - 1)}.`);
+    }
+  }
+
+  function assertFixtureA(model) {
+    const expected = new Map([
+      [3, ["W_3^{1}:12", "W_3^{2}:2"]],
+      [8, ["W_8^{7}:12", "W_8^{6}:2"]],
+      [4, ["W_4^{2}:10", "W_4^{3}:4"]],
+      [5, ["W_5^{3}:8", "W_5^{4}:6"]],
+      [6, ["W_6^{4}:6", "W_6^{5}:8"]],
+      [7, ["W_7^{5}:4", "W_7^{6}:10"]]
+    ]);
+    assertSplitFixture(model, expected, "Fixture A split");
+    assertMergeFixture(model, new Map([
+      [1, ["W_1", "W_8^{6}"]],
+      [2, ["W_2", "W_3^{2}"]],
+      [3, ["W_3^{1}", "W_4^{3}"]],
+      [4, ["W_4^{2}", "W_5^{4}"]],
+      [5, ["W_5^{3}", "W_6^{5}"]],
+      [6, ["W_6^{4}", "W_7^{6}"]],
+      [7, ["W_7^{5}", "W_8^{7}"]]
+    ]), "Fixture A merge");
+  }
+
+  function assertFixtureB(model) {
+    assertSplitFixture(model, new Map([
+      [4, ["W_4^{1}:7", "W_4^{3}:2", "W_4^{2,3}:1"]],
+      [6, ["W_6^{5}:7", "W_6^{3}:2", "W_6^{3,4}:1"]],
+      [5, ["W_5^{2}:5", "W_5^{4}:5"]]
+    ]), "Fixture B split");
+    assertMergeFixture(model, new Map([
+      [1, ["W_1", "W_6^{3}"]],
+      [2, ["W_2", "W_4^{2,3}", "W_6^{3,4}"]],
+      [3, ["W_3", "W_4^{3}"]],
+      [4, ["W_4^{1}", "W_5^{4}"]],
+      [5, ["W_5^{2}", "W_6^{5}"]]
+    ]), "Fixture B merge");
+  }
+
+  function assertSplitFixture(model, expected, name) {
+    expected.forEach((want, origin) => {
+      const got = (model.pieces.get(origin) || []).map((p) => `${tag(p.origin, p.dests)}:${p.units}`);
+      if (got.join("|") !== want.join("|")) throw new Error(`${name} mismatch for W_${origin}\nGot: ${got.join(", ")}\nWant: ${want.join(", ")}`);
+    });
+  }
+
+  function assertMergeFixture(model, expected, name) {
+    expected.forEach((want, j) => {
+      const got = (model.targets.get(j) || []).map((p) => tag(p.origin, p.dests));
+      if (got.join("|") !== want.join("|")) throw new Error(`${name} mismatch for ${targetTag(j)}\nGot: ${got.join(", ")}\nWant: ${want.join(", ")}`);
+    });
+  }
+
+  function storageSetBefore(origin, K, r) {
+    return plusSet(origin, K, r);
+  }
+
+  function storageSetAfter(origin, K, r) {
+    return plusSet(origin, K - 1, r);
+  }
+
+  function nodeRowsBefore(model) {
+    const rows = [];
+    for (let node = 1; node <= model.K; node++) {
+      const bars = [];
+      for (let origin = 1; origin <= model.K; origin++) {
+        if (storageSetBefore(origin, model.K, model.r).includes(node)) {
+          bars.push({
+            label: tag(origin),
+            chunks: model.pieces.has(origin) ? model.pieces.get(origin) : [wholePiece(origin, model.K)]
+          });
+        }
+      }
+      rows.push({ node, removed: node === model.removed, bars });
+    }
+    return rows;
+  }
+
+  function nodeRowsAfter(model) {
+    const rows = [];
+    const targetIds = [...model.targets.keys()].sort((a, b) => a - b);
+    for (let node = 1; node <= model.K; node++) {
+      if (node === model.removed) continue;
+      const bars = [];
+      for (const j of targetIds) {
+        const storedAt = (model.afterStorage && model.afterStorage.get(j)) || storageSetAfter(j, model.K, model.r);
+        if (storedAt.includes(node)) {
+          bars.push({ label: targetTag(j), chunks: model.targets.get(j) });
+        }
+      }
+      rows.push({ node, removed: false, bars });
+    }
+    return rows;
+  }
+
+  function renderGrid(svg, rows, model, panel) {
+    svg.textContent = "";
+    const K = model.K;
+    const maxBars = Math.max(...rows.map((r) => r.bars.length));
+    const labelW = 82;
+    const left = labelW;
+    const top = 18;
+    const barH = 24;
+    const barGap = 7;
+    const rowGap = 30;
+    const barMax = panel === "after" ? 184 : 162;
+    const unitScale = barMax / (panel === "after" ? 2 * K : 2 * (K - 1));
+    const rowH = barH + rowGap;
+    const width = Math.max(1120, left + maxBars * (barMax + 12) + 24);
+    const height = top + rows.length * rowH + 8;
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+
+    rows.forEach((row, ri) => {
+      const y0 = top + ri * rowH;
+      const group = el("g", { class: row.removed ? "removed" : "" });
+      group.appendChild(el("text", { x: 8, y: y0 + 18, class: "node-label" }, `N${row.node}`));
+      if (row.removed) group.appendChild(el("text", { x: 8, y: y0 + 36, class: "row-note" }, "removed"));
+
+      row.bars.forEach((bar, bi) => {
+        const x = left + bi * (barMax + 12);
+        const y = y0;
+        group.appendChild(el("rect", { x, y, width: barMax, height: barH, rx: 2, class: "bar-bg" }));
+        group.appendChild(el("text", { x: x + 4, y: y + barH + 14, class: "bar-label" }, bar.label));
+        let cx = x;
+        bar.chunks.forEach((chunk, ci) => {
+          const w = Math.max(.8, chunk.units * unitScale);
+          const g = el("g", { class: "chunk", "data-key": chunk.key, "data-origin": chunk.origin });
+          const fill = colorForOrigin(chunk.origin, chunk.dests.length ? ci + chunk.dests.length - 1 : 0, K);
+          g.appendChild(el("rect", { x: cx, y, width: w, height: barH, fill }));
+          if (w >= 24) {
+            const label = tag(chunk.origin, chunk.dests);
+            g.appendChild(el("text", {
+              x: cx + Math.min(5, w / 5),
+              y: y + 16,
+              class: "chunk-label",
+              "textLength": label.length > 11 && w < 56 ? Math.max(18, w - 8) : null,
+              "lengthAdjust": label.length > 11 && w < 56 ? "spacingAndGlyphs" : null
+            }, label));
+          }
+          g.appendChild(el("title", {}, `${tag(chunk.origin, chunk.dests)}\nsize ${chunk.units}/${2 * (K - 1)} of T\norigin W_${chunk.origin}`));
+          group.appendChild(g);
+          cx += w;
+        });
+      });
+
+      if (row.removed) {
+        const yMid = y0 + (maxBars * (barH + barGap) - barGap) / 2;
+        group.appendChild(el("line", { x1: 0, y1: yMid, x2: width - 10, y2: yMid, class: "strike" }));
+      }
+      svg.appendChild(group);
+    });
+  }
+
+  function el(name, attrs = {}, text = "") {
+    const node = document.createElementNS(NS, name);
+    Object.entries(attrs).forEach(([k, v]) => {
+      if (v !== null && v !== undefined) node.setAttribute(k, String(v));
+    });
+    if (text) node.textContent = text;
+    return node;
+  }
+
+  function renderTransmissions(model) {
+    const list = $("txList");
+    list.textContent = "";
+    const denom = 2 * (model.K - 1);
+    $("txMeta").textContent = `${model.scheme}; coded load ${model.loadUnits}/${denom} = ${(model.loadUnits / denom).toFixed(3)} vs uncoded r = ${model.r}`;
+    model.tx.forEach((t) => {
+      const li = document.createElement("li");
+      const parts = t.items.map((p) => tag(p.origin, p.dests)).join(t.mode === "xor" && t.items.length > 1 ? " + " : ", ");
+      li.innerHTML = `<span class="node-pill">N${t.node}</span><span class="mono">${parts}</span><div class="subtle">broadcast size ${t.units}/${denom}</div>`;
+      list.appendChild(li);
+    });
+  }
+
+  function renderLegend(model) {
+    const legend = $("legend");
+    legend.textContent = "";
+    for (let i = 1; i <= model.K; i++) {
+      const item = document.createElement("div");
+      item.className = "legend-item";
+      const swatch = document.createElement("span");
+      swatch.className = "swatch";
+      swatch.style.background = colorForOrigin(i, 0, model.K);
+      item.appendChild(swatch);
+      item.appendChild(document.createTextNode(`W_${i}`));
+      legend.appendChild(item);
+    }
+  }
+
+  function bindHover() {
+    document.querySelectorAll(".chunk").forEach((chunk) => {
+      chunk.addEventListener("mouseenter", () => {
+        const key = chunk.getAttribute("data-key");
+        document.querySelectorAll(".chunk").forEach((c) => c.classList.toggle(c.getAttribute("data-key") === key ? "hot" : "dim", true));
+        document.querySelectorAll(`.chunk[data-key="${CSS.escape(key)}"]`).forEach((c) => {
+          c.classList.remove("dim");
+          c.classList.add("hot");
+        });
+      });
+      chunk.addEventListener("mouseleave", clearHover);
+    });
+  }
+
+  function clearHover() {
+    document.querySelectorAll(".chunk").forEach((c) => c.classList.remove("hot", "dim"));
+  }
+
+  function render() {
+    clearHover();
+    errorEl.style.display = "none";
+    errorEl.textContent = "";
+    try {
+      const K = Number(kInput.value);
+      const r = Number(rInput.value);
+      const removed = Number(removedInput.value);
+      rInput.max = String(Math.max(3, K - 1));
+      removedInput.max = String(K);
+      const model = compute(K, r, removed);
+      const denom = 2 * (K - 1);
+      const load = `${model.loadUnits}/${denom} = ${(model.loadUnits / denom).toFixed(3)}`;
+      $("readout").textContent = `K=${K}, r=${r}, removed node=${removed}, ${model.scheme}, coded load ${load}, uncoded load r=${r}. ${fixtureNote}`;
+      renderGrid($("beforeSvg"), nodeRowsBefore(model), model, "before");
+      renderGrid($("afterSvg"), nodeRowsAfter(model), model, "after");
+      renderTransmissions(model);
+      renderLegend(model);
+      bindHover();
+      statusEl.className = "status ok";
+      statusEl.textContent = "assertions passed";
+      $("txPanel").style.display = txToggle.checked ? "" : "none";
+    } catch (err) {
+      statusEl.className = "status fail";
+      statusEl.textContent = "assertion failed";
+      errorEl.style.display = "block";
+      errorEl.textContent = err && err.stack ? err.stack : String(err);
+      $("beforeSvg").textContent = "";
+      $("afterSvg").textContent = "";
+      $("txList").textContent = "";
+      $("legend").textContent = "";
+    }
+  }
+
+  $("renderBtn").addEventListener("click", render);
+  [kInput, rInput, removedInput].forEach((input) => input.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") render();
+  }));
+  txToggle.addEventListener("change", () => {
+    $("txPanel").style.display = txToggle.checked ? "" : "none";
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

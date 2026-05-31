@@ -1,0 +1,2 @@
+# Demo UI only. The verifier/oracle and tests are pure stdlib (no deps).
+streamlit>=1.30
