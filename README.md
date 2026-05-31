@@ -13,6 +13,12 @@ That makes the loop's feedback signal trustworthy enough to run autonomously.
 > Standout factor: **Agent Architectures & Control Loops** — the oracle is the reward
 > signal that makes autonomous research safe and auditable.
 
+![Coded Data Rebalancing — node-failure recovery, every number verified by the oracle](docs/slide.png)
+
+*Before → after storage matrices for the cyclic scheme (K=8, r=6, node 8 removed). Every
+figure is produced by `src/verifier.py`: coded load 72 vs. baseline 84, and every XOR
+verified to decode in 0.02 ms.*
+
 ## Quick start
 
 ```bash
